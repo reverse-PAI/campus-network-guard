@@ -1,0 +1,17 @@
+{
+  "username": "",
+  "portal_host": "",
+  "ac_id": "1",
+  "ssid": "",
+  "interface": "WLAN",
+  "only_on_campus": true,
+  "periodic_seconds": 300,
+  "min_interval_seconds": 8,
+  "allow_renew_ip": true,
+  "allow_restart_adapter": false,
+  "max_fail": 5,
+  "cooldown_seconds": 600,
+  "port": 8765,
+  "open_browser": true,
+  "tray": true
+}

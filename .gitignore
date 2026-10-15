@@ -1,0 +1,12 @@
+# 个人信息与运行产物，绝对不要提交
+config.json
+cred.bin
+logs/
+__pycache__/
+*.pyc
+
+# 打包产物
+build/
+dist/
+*.spec
+_appname.cmd

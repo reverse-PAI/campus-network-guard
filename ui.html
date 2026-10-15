@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>校园网守护</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNTYgMjU2Jz48cmVjdCB3aWR0aD0nMjU2JyBoZWlnaHQ9JzI1Nicgcng9JzYwJyBmaWxsPScjNDMzOENBJy8+PHBhdGggZD0nTTc2LjggNDIuMjRoMTAyLjRhMjQuMzIgMjQuMzIgMCAwIDEgMjQuMzIgMjQuMzJ2NjEuNDRjMCA0Mi0zNC4yIDc2LjEtNzUuNTIgOTAuODgtNDEuMzItMTQuNzgtNzUuNTItNDguODgtNzUuNTItOTAuODhWNjYuNTZBMjQuMzIgMjQuMzIgMCAwIDEgNzYuOCA0Mi4yNHonIGZpbGw9JyNmZmYnLz48Y2lyY2xlIGN4PScxMjgnIGN5PScxNjcuNycgcj0nOC40NScgZmlsbD0nIzQzMzhDQScvPjxwYXRoIGQ9J00xMDkgMTQ4LjdhMjYuODggMjYuODggMCAwIDEgMzggMCcgZmlsbD0nbm9uZScgc3Ryb2tlPScjNDMzOENBJyBzdHJva2Utd2lkdGg9JzEwLjc1JyBzdHJva2UtbGluZWNhcD0ncm91bmQnLz48cGF0aCBkPSdNOTUuMDUgMTM0Ljc1YTQ2LjYgNDYuNiAwIDAgMSA2NS45IDAnIGZpbGw9J25vbmUnIHN0cm9rZT0nIzQzMzhDQScgc3Ryb2tlLXdpZHRoPScxMC43NScgc3Ryb2tlLWxpbmVjYXA9J3JvdW5kJy8+PC9zdmc+">
+<style>
+  :root{
+    --bg:#eef1f5; --card:#fff; --line:#e0e4ea; --text:#23272e; --muted:#7a828e;
+    --green:#12a150; --red:#e5484d; --amber:#e08c00; --blue:#2b6cf6; --gray:#a6adb7;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--text);padding:10px 10px 16px;
+       font:13px/1.55 "Microsoft YaHei UI","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+       -webkit-user-select:none;user-select:none}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 2px rgba(16,24,40,.05);margin-bottom:8px}
+  #status{display:flex;align-items:center;gap:11px;padding:12px 14px}
+  #dot{width:12px;height:12px;border-radius:50%;background:var(--gray);flex:none;box-shadow:0 0 0 4px rgba(166,173,183,.18);transition:.2s}
+  #dot.on{background:var(--green);box-shadow:0 0 0 4px rgba(18,161,80,.15)}
+  #dot.off{background:var(--red);box-shadow:0 0 0 4px rgba(229,72,77,.15)}
+  #dot.busy{background:var(--amber);box-shadow:0 0 0 4px rgba(224,140,0,.15)}
+  #dot.idle{background:var(--gray)}
+  #statusText{font-size:16px;font-weight:600;line-height:1.25}
+  #sub{color:var(--muted);font-size:12px;margin-top:2px}
+  #sub2{color:#98a0ab;font-size:11.5px;margin-top:1px}
+  .badge{margin-left:auto;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .row{display:flex;gap:8px;margin-bottom:8px}
+  .btn{flex:1;font:inherit;font-size:12.5px;color:var(--text);background:#fff;border:1px solid var(--line);
+       border-radius:8px;padding:7px 4px;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.05);transition:.15s}
+  .btn:hover{background:#f6f8fb;border-color:#cfd6e0}
+  .btn:active{background:#eef2f8;transform:translateY(1px)}
+  .btn[disabled]{opacity:.5;cursor:default;transform:none}
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+  .btn.primary:hover{background:#1f5fe0;border-color:#1f5fe0}
+  .btn.wide{width:100%;flex:none;margin-bottom:8px;font-size:13px;padding:8px 4px}
+  .btn.resume{background:var(--green);border-color:var(--green);color:#fff}
+  .btn.resume:hover{background:#0e8c45;border-color:#0e8c45}
+  .tip{display:none;margin:-2px 2px 8px;padding:7px 12px;background:#fff6e5;border:1px solid #ffe1b3;border-radius:8px;color:#8a5a00;font-size:12px}
+  .tip.show{display:block}
+  .stats{display:flex;padding:10px 4px;text-align:center}
+  .stats>div{flex:1;min-width:0}
+  .stats b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stats span{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+  .swrow{display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px}
+  .swrow:last-child{border-bottom:0}
+  .swrow .hint{color:var(--muted);font-size:11.5px;margin-left:6px}
+  .sw{margin-left:auto;position:relative;width:38px;height:21px;flex:none}
+  .sw input{opacity:0;width:0;height:0}
+  .sw i{position:absolute;inset:0;background:#cfd5dd;border-radius:999px;transition:.2s;cursor:pointer}
+  .sw i:before{content:"";position:absolute;width:17px;height:17px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .sw input:checked+i{background:var(--green)}
+  .sw input:checked+i:before{transform:translateX(17px)}
+  .sw input:disabled+i{opacity:.5}
+  details.card{padding:0}
+  summary{cursor:pointer;padding:10px 14px;font-size:13px;list-style:none;display:flex;align-items:center}
+  summary::-webkit-details-marker{display:none}
+  summary:after{content:"";margin-left:auto;width:7px;height:7px;border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:rotate(45deg);transition:.2s}
+  details[open] summary:after{transform:rotate(-135deg)}
+  .form{padding:2px 14px 12px}
+  .fld{display:flex;align-items:center;margin-bottom:7px}
+  .fld label{width:78px;color:var(--muted);font-size:12.5px;flex:none}
+  .fld input{flex:1;min-width:0;font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#fbfcfe;color:var(--text)}
+  .fld input:focus{outline:none;border-color:var(--blue);background:#fff}
+  .loghead{display:flex;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+  #log{height:170px;overflow:auto;padding:7px 12px;font:11.5px/1.65 Consolas,"Cascadia Mono",monospace;color:#404750;white-space:pre-wrap;word-break:break-all}
+  .link{font:inherit;font-size:12px;color:var(--blue);background:none;border:0;cursor:pointer;padding:2px 4px;margin-left:auto}
+  .link:hover{text-decoration:underline}
+  .link.danger{color:var(--red)}
+  .foot{display:flex;align-items:center;color:var(--muted);font-size:11.5px;padding:0 4px}
+  #trayNote{color:var(--muted);font-size:11px;line-height:1.5;text-align:center;margin:5px 4px 0;opacity:.85}
+  #toast{position:fixed;left:50%;bottom:12px;transform:translateX(-50%) translateY(20px);background:#23272e;color:#fff;
+         font-size:12px;padding:6px 14px;border-radius:999px;opacity:0;transition:.2s;pointer-events:none;max-width:90%;text-align:center}
+  #toast.show{opacity:.94;transform:translateX(-50%) translateY(0)}
+  #ask{position:fixed;inset:0;background:rgba(16,20,26,.42);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+  #ask.show{display:flex}
+  .askbox{background:#fff;border-radius:12px;padding:15px 15px 12px;width:100%;max-width:300px;box-shadow:0 12px 32px rgba(16,24,40,.28)}
+  .asktitle{font-size:14px;font-weight:600;margin-bottom:6px}
+  .askmsg{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:14px;word-break:break-word}
+  .askbtns{display:flex;gap:8px}
+  .btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+  .btn.danger:hover{background:#cf3b40;border-color:#cf3b40}
+</style>
+</head>
+<body>
+
+<div class="tip" id="setupTip">第一次使用：打开下面的「账号与设置」，填好账号、密码、WiFi 名称和认证服务器，点「保存设置」就生效。</div>
+
+<div class="card" id="status">
+  <div id="dot"></div>
+  <div style="min-width:0">
+    <div id="statusText">正在连接…</div>
+    <div id="sub">—</div>
+    <div id="sub2"></div>
+  </div>
+  <div class="badge" id="badge">—</div>
+</div>
+
+<div class="row">
+  <button class="btn" id="bCheck">立即检测</button>
+  <button class="btn" id="bRecon">立即重连</button>
+  <button class="btn" id="bTest">测试登录</button>
+</div>
+
+<button class="btn wide" id="bMonitor">暂停自动监控</button>
+<div class="tip" id="pauseTip">自动监控已暂停：断网时不会自动检测、也不会自动重连。</div>
+
+<div class="card stats">
+  <div><b id="sDown">0</b><span>今日断网</span></div>
+  <div><b id="sLastDown">—</b><span>上次断网</span></div>
+  <div><b id="sLastUp">—</b><span>上次恢复</span></div>
+  <div><b id="sChecks">0</b><span>累计检测</span></div>
+</div>
+
+<div class="card" style="padding:0">
+  <div class="swrow"><span>允许重启网卡</span><span class="hint">需授权</span>
+    <label class="sw"><input type="checkbox" id="swRestart"><i></i></label></div>
+  <div class="swrow"><span>开机自动启动</span>
+    <label class="sw"><input type="checkbox" id="swAuto"><i></i></label></div>
+  <div class="swrow"><span>启动时打开面板</span><span class="hint">关掉省内存 · 开机自启不弹</span>
+    <label class="sw"><input type="checkbox" id="swPanel"><i></i></label></div>
+</div>
+
+<details class="card" id="det">
+  <summary>账号与设置</summary>
+  <div class="form">
+    <div class="fld"><label>账号</label><input id="fUser" autocomplete="off"></div>
+    <div class="fld"><label>密码</label><input id="fPass" type="password" placeholder="留空表示不修改" autocomplete="off"></div>
+    <div class="fld"><label>WiFi 名称</label><input id="fSsid" placeholder="校园网 WiFi 名字，如 Campus-WiFi"></div>
+    <div class="fld"><label>认证服务器</label><input id="fHost" placeholder="认证页面地址栏里的 IP，如 10.0.0.1"></div>
+    <div style="color:var(--muted);font-size:11.5px;line-height:1.55;margin:-2px 0 6px 78px">填错也不要紧：没填或填得不对时，程序只会跳过「重新认证」这一步，剩下的重连照做。</div>
+    <div class="fld"><label>网卡接口</label><input id="fIf"></div>
+    <div class="fld"><label>自动检查</label><input id="fPeriod" type="number" min="30" max="3600" step="30"><span id="fPeriodHint" style="color:var(--muted);font-size:12px;margin-left:6px;white-space:nowrap">秒</span></div>
+    <div style="color:var(--muted);font-size:11.5px;line-height:1.55;margin:-2px 0 6px 78px">多久自动检查一次网络；数字越小，掉线发现得越快，检查也更频繁。<br>一般 5 分钟就够——真的断线时系统会立刻通知，不用等这里。</div>
+    <div class="row" style="margin:10px 0 0">
+      <button class="btn primary" id="bSave">保存设置</button>
+      <button class="btn" id="bShortcut">创建桌面快捷方式</button>
+    </div>
+  </div>
+</details>
+
+<div class="card">
+  <div class="loghead"><span>运行日志</span><button class="link" id="bClear">清空</button></div>
+  <div id="log"></div>
+</div>
+
+<div class="foot">
+  <span id="footInfo">—</span>
+  <button class="link danger" id="bQuit">退出程序</button>
+</div>
+<div id="trayNote">关闭窗口只是收起面板，程序会留在右下角托盘里继续守护网络</div>
+
+<div id="ask">
+  <div class="askbox">
+    <div class="asktitle">要退出程序吗？</div>
+    <div class="askmsg" id="askMsg"></div>
+    <div class="askbtns">
+      <button class="btn" id="askNo">取消</button>
+      <button class="btn danger" id="askYes">退出</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+var logTotal = 0, logEl, toastEl, toastTimer = null, curPaused = false, ticking = false, tickTimer = null;
+var askEl, askMsgEl, askOnYes = null;
+
+function $(id){ return document.getElementById(id); }
+
+function toast(msg){
+  toastEl.textContent = msg || "";
+  toastEl.className = "show";
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ toastEl.className = ""; }, 3200);
+}
+
+function ask(msg, onYes){
+  askMsgEl.textContent = msg || "";
+  askOnYes = onYes || null;
+  askEl.className = "show";
+}
+
+function askClose(){
+  askEl.className = "";
+  askOnYes = null;
+}
+
+function post(body){
+  return fetch("/api/action", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); });
+}
+
+function act(body, done){
+  return post(body).then(function(res){
+    toast(res.msg);
+    if (done) done(res);
+    if (res.ok) tick();
+    return res;
+  }).catch(function(e){ toast("操作失败：" + e); if (done) done(null); });
+}
+
+function swSave(el, body){
+  act(body, function(res){
+    if (!res || res.ok === false || res.ok_flag === false) el.checked = !el.checked;
+    else tick();
+  });
+}
+
+function fmtSecs(v){
+  v = parseInt(v, 10);
+  if (!v || v <= 0) return "—";
+  return v % 60 === 0 ? (v / 60) + " 分钟" : v + " 秒";
+}
+
+function updPeriodHint(){
+  var v = Math.trunc(Number($("fPeriod").value));
+  $("fPeriodHint").textContent = (v > 0) ? ("秒 · " + fmtSecs(v)) : "秒";
+}
+
+function hhmmss(v){
+  if (!v) return "—";
+  var s = String(v);
+  var m = s.match(/(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/);
+  if (!m) return s;
+  var today = new Date();
+  var d = today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,"0") + "-" + String(today.getDate()).padStart(2,"0");
+  return m[1] === d ? m[2] : m[1].slice(5) + " " + m[2].slice(0,5);
+}
+
+function render(s){
+  var dot = $("dot"), cls = "idle", text = s.status_text || "—";
+  if (s.paused) { cls = "idle"; }
+  else if (s.status === "online") { cls = "on"; }
+  else if (s.status === "offline") { cls = "off"; }
+  else if (s.status === "recovering" || s.status === "checking" || s.checking || s.recovering) { cls = "busy"; }
+  else if (s.status === "other") { cls = "busy"; }
+  dot.className = cls;
+  $("statusText").textContent = text;
+
+  var line1 = s.ssid ? ("WiFi " + s.ssid + (s.adapter ? "（" + s.adapter + "）" : "")) : "";
+  if (s.cooldown_left > 0) line1 += "　熔断中 " + Math.ceil(s.cooldown_left/60) + " 分钟";
+  $("sub").textContent = line1 || "—";
+  var line2 = s.last_check ? ("最近检测 " + hhmmss(s.last_check) + (s.last_check_trigger ? " · " + s.last_check_trigger : "")) : "";
+  $("sub2").textContent = line2;
+  $("badge").textContent = s.paused ? "已暂停" : (s.event_sub ? "事件监听中" : "仅定时检测");
+
+  $("sDown").textContent = s.today_down == null ? "0" : s.today_down;
+  $("sLastDown").textContent = hhmmss(s.last_down);
+  $("sLastUp").textContent = hhmmss(s.last_up);
+  $("sChecks").textContent = s.checks == null ? "0" : s.checks;
+
+  curPaused = !!s.paused;
+  var mb = $("bMonitor");
+  mb.textContent = curPaused ? "恢复自动监控" : "暂停自动监控";
+  mb.className = curPaused ? "btn wide resume" : "btn wide";
+  $("pauseTip").className = curPaused ? "tip show" : "tip";
+  $("swRestart").checked = !!(s.cfg && s.cfg.allow_restart_adapter);
+  $("swAuto").checked = !!s.autostart;
+  $("swPanel").checked = !!(s.cfg && s.cfg.open_browser);
+  $("setupTip").className = s.needs_setup ? "tip show" : "tip";
+  if (s.needs_setup) $("det").open = true;
+
+  var c = s.cfg || {};
+  if (document.activeElement !== $("fUser")) $("fUser").value = c.username || "";
+  if (document.activeElement !== $("fSsid")) $("fSsid").value = c.ssid || "";
+  if (document.activeElement !== $("fHost")) $("fHost").value = c.portal_host || "";
+  if (document.activeElement !== $("fIf")) $("fIf").value = c.interface || "";
+  if (c.periodic_min) $("fPeriod").min = c.periodic_min;
+  if (c.periodic_max) $("fPeriod").max = c.periodic_max;
+  if (document.activeElement !== $("fPeriod")) $("fPeriod").value = c.periodic_seconds || 300;
+  updPeriodHint();
+
+  $("footInfo").textContent = "v" + (s.version || "1.0") + " · " + (s.admin ? "管理员" : "普通权限")
+                            + (c.periodic_seconds ? " · 自动检查 " + fmtSecs(c.periodic_seconds) : "");
+
+  var lines = s.logs || [];
+  if (lines.length){
+    for (var i = 0; i < lines.length; i++){
+      var div = document.createElement("div");
+      div.textContent = lines[i];
+      logEl.appendChild(div);
+    }
+    while (logEl.childElementCount > 500) logEl.removeChild(logEl.firstChild);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  if (s.log_total != null){
+    if (s.log_total < logTotal){ logEl.innerHTML = ""; logTotal = 0; }
+    else { logTotal = s.log_total; }
+  }
+}
+
+function tick(){
+  if (ticking) return;
+  ticking = true;
+  var ctl = window.AbortController ? new AbortController() : null;
+  if (ctl) tickTimer = setTimeout(function(){ ctl.abort(); }, 8000);
+  fetch("/api/state?from=" + logTotal, ctl ? {signal: ctl.signal} : undefined)
+    .then(function(r){ return r.json(); }).then(render).catch(function(){
+      $("statusText").textContent = "与后台失去联系";
+      $("dot").className = "idle";
+    }).then(function(){
+      if (tickTimer){ clearTimeout(tickTimer); tickTimer = null; }
+      ticking = false;
+    });
+}
+
+function bind(){
+  $("bCheck").onclick = function(){ act({action:"check"}); };
+  $("bRecon").onclick = function(){ act({action:"reconnect"}); };
+  $("bTest").onclick  = function(){ act({action:"test_login"}); };
+  $("bSave").onclick  = function(){
+    act({action:"save",
+         username: $("fUser").value, password: $("fPass").value,
+         ssid: $("fSsid").value, portal_host: $("fHost").value,
+         interface: $("fIf").value, periodic_seconds: $("fPeriod").value,
+         allow_restart_adapter: $("swRestart").checked}, function(res){ if (res && res.ok && res.ok_flag !== false) $("fPass").value = ""; });
+  };
+  $("bShortcut").onclick = function(){ act({action:"shortcut"}); };
+  $("bClear").onclick = function(){ logEl.innerHTML = ""; act({action:"clear_logs"}); };
+  $("fPeriod").oninput = updPeriodHint;
+  $("bQuit").onclick = function(){
+    ask("退出后就不再自动重连了；只想收起面板的话，直接关窗口就行。", function(){
+      act({action:"quit"}); setTimeout(function(){ window.close(); }, 600);
+    });
+  };
+  $("askNo").onclick = askClose;
+  $("askYes").onclick = function(){ var yes = askOnYes; askClose(); if (yes) yes(); };
+  askEl.onclick = function(e){ if (e.target === askEl) askClose(); };
+  $("bMonitor").onclick = function(){ act({action: curPaused ? "resume" : "pause"}); };
+  $("swRestart").onchange = function(){ swSave(this, {action:"save", allow_restart_adapter: this.checked}); };
+  $("swPanel").onchange = function(){ swSave(this, {action:"save", open_browser: this.checked}); };
+  $("swAuto").onchange = function(){ swSave(this, {action:"autostart", enable: this.checked}); };
+  document.addEventListener("keydown", function(e){
+    if (e.key !== "Escape") return;
+    if (askOnYes) askClose(); else window.close();
+  });
+}
+
+logEl = $("log");
+toastEl = $("toast");
+askEl = $("ask");
+askMsgEl = $("askMsg");
+bind();
+tick();
+setInterval(tick, 2000);
+</script>
+</body>
+</html>

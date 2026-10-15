@@ -7,7 +7,7 @@ from ctypes import wintypes
 import srun
 import winutil as wu
 
-APP_VERSION = "1.2"
+APP_VERSION = "1.2.2"
 
 DEFAULTS = {
     "username": "", "portal_host": "", "ac_id": "1",

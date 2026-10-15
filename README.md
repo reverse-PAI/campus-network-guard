@@ -7,7 +7,7 @@ Windows 上的校园网自动重连小工具：网络掉了以后自动重新认
 
 ![界面预览](ui-preview.png)
 
-当前版本 **v1.2** ｜ MIT License ｜ 只有 Windows
+当前版本 **v1.2.2** ｜ MIT License ｜ 只有 Windows
 
 ---
 
@@ -73,7 +73,7 @@ Windows 上的校园网自动重连小工具：网络掉了以后自动重新认
 
 ### 方式 A：直接用 exe（推荐，什么都不用装）
 
-1. 下载 校园网守护.exe（约 5.5 MB，单文件，自带 Python 运行时），放到一个**固定目录**（例如 D:\Tools\ShouWang；别放在下载文件夹，也别只放在桌面）；
+1. 到 [Releases](https://github.com/reverse-PAI/campus-network-guard/releases) 下载最新那版的 `ShouWang-v<版本>-windows.exe`（约 7 MB，单文件，自带 Python 运行时），拷到一个**固定目录**并改成好认的名字（例如 `D:\Tools\ShouWang\校园网守护.exe`；别放在下载文件夹，也别只放在桌面）；
 2. 双击运行。第一次会弹出控制面板，按提示填账号密码即可。
 
 配置、日志、加密后的密码都保存在 **exe 同级的目录**里，卸载时删掉整个目录就行（记得先关掉「开机自动启动」）。
@@ -239,7 +239,7 @@ curl -X POST http://127.0.0.1:8765/api/action -H "Content-Type: application/json
 
 ```json
 {
-  "version": "1.2",
+  "version": "1.2.2",
   "running": true,
   "paused": false,
   "status": "online",
@@ -429,7 +429,7 @@ login : {"ok": false, "ecode": "ip_already_online_error", "error_msg": "IP 已�
 * **账号与设置**：账号、密码、WiFi 名、认证服务器、网卡接口，以及 **自动检查**（多久自查一次，填秒数，右边实时显示「5 分钟」这样的可读时长；超出范围会自动夹回来），改完点「保存设置」立即生效
 * **统计**：今日断网次数、上次断网/恢复时间、累计检测次数
 * **运行日志**：实时滚动，同时写入 `logs` 目录（面板只保留最近 500 行，长时间运行也不会越滚越卡）
-* **底部**：v1.2 · 普通权限 · 自动检查 5 分钟（管理员运行时显示「管理员」）
+* **底部**：v1.2.2 · 普通权限 · 自动检查 5 分钟（管理员运行时显示「管理员」）
 
 ---
 
@@ -538,7 +538,7 @@ python -m PyInstaller --noconfirm --clean --onefile --noconsole ^
   --add-data "ui.html;." --add-data "app.ico;." app.py
 ```
 
---optimize 2 丢掉断言和文档字符串，--exclude-module 剔掉用不到的模块（探测和认证都走 http，连 ssl 都用不上），这样打出来的单文件 exe 大约 **5.5 MB**（带 Python 运行时和图标）。
+--optimize 2 丢掉断言和文档字符串，--exclude-module 剔掉用不到的模块（探测和认证都走 http，连 ssl 都用不上），这样打出来的单文件 exe 大约 **5.5 MB**（带 Python 运行时和图标；Python 3.13 + PyInstaller 6.x 实测 5,599,809 B。GitHub Actions 用 Python 3.12 跑同一份 `build.bat`，产物约 7 MB —— 配方一样，差别只在解释器自带的运行时库）。
 
 排掉 `_hashlib` 会顺带踢掉它带的 `OpenSSL`（`libcrypto-3.dll`，约 1.8 MB），单文件体积少掉三分之一；SRun 认证要用的 MD5/SHA1 由 Python 自带的 `_md5`/`_sha1` 顶上（CPython 3.13 里它们是内置模块，`hashlib` 会自动回退），所以 `--hidden-import` 这两个必须写上。
 

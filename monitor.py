@@ -9,14 +9,14 @@ import winutil as wu
 from ssid_rules import (MAX_SSID_ITEMS, MAX_SSID_LEN, normalize_ssid_list,
                         ssid_key, ssid_matches, sync_legacy_ssid)
 
-APP_VERSION = "1.3.4"
+APP_VERSION = "1.3.5"
 
 DEFAULTS = {
     "username": "", "portal_host": "", "ac_id": "1",
     "ssid": "", "ssid_list": [], "last_ssid": "", "interface": "WLAN", "only_on_campus": True,
     "periodic_seconds": 300, "min_interval_seconds": 8, "allow_renew_ip": True,
     "allow_restart_adapter": False, "max_fail": 5, "cooldown_seconds": 600,
-    "port": 8765, "open_browser": True, "tray": True,
+    "port": 8765, "open_browser": True, "tray": True, "tray_overflow": True,
 }
 
 MIN_PERIODIC = 30

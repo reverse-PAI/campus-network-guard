@@ -77,6 +77,7 @@ class WebuiGuardTest(unittest.TestCase):
         code, data = self.request("POST", payload={
             "action": "save", "ac_id": " 7 ", "interface": "",
             "only_on_campus": False, "allow_renew_ip": False, "tray": False,
+            "tray_overflow": False,
             "min_interval_seconds": "0", "max_fail": "999", "cooldown_seconds": "-5",
         })
         self.assertEqual(code, 200)
@@ -86,6 +87,7 @@ class WebuiGuardTest(unittest.TestCase):
         self.assertFalse(self.mon.cfg["only_on_campus"])
         self.assertFalse(self.mon.cfg["allow_renew_ip"])
         self.assertFalse(self.mon.cfg["tray"])
+        self.assertFalse(self.mon.cfg["tray_overflow"])
         self.assertEqual(self.mon.cfg["min_interval_seconds"], 1)
         self.assertEqual(self.mon.cfg["max_fail"], 99)
         self.assertEqual(self.mon.cfg["cooldown_seconds"], 0)

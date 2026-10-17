@@ -34,12 +34,14 @@ class UiWiringTest(unittest.TestCase):
                     'min_interval_seconds: $("fMinInt").value',
                     'max_fail: $("fMaxFail").value',
                     'cooldown_seconds: $("fCooldown").value',
-                    'tray: $("swTray").checked'):
+                    'tray: $("swTray").checked',
+                    'tray_overflow: $("swOverflow").checked'):
             with self.subTest(key=key):
                 self.assertIn(key, ui)
 
     def test_advanced_inputs_exist(self):
         ui = read("ui.html")
-        for elem in ("fAcid", "swCampus", "swRenew", "swTray", "fMinInt", "fMaxFail", "fCooldown"):
+        for elem in ("fAcid", "swCampus", "swRenew", "swTray", "swOverflow",
+                     "fMinInt", "fMaxFail", "fCooldown"):
             with self.subTest(elem=elem):
                 self.assertIn('id="%s"' % elem, ui)

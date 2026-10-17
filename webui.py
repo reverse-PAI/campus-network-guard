@@ -25,7 +25,7 @@ def start(mon, base_dir: str, port: int, on_quit=None):
     ui_path = os.path.join(base_dir, "ui.html")
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "ShouWangUI/1.3.4"
+        server_version = "ShouWangUI/1.3.5"
         protocol_version = "HTTP/1.1"
         timeout = 15
 
@@ -177,7 +177,7 @@ def start(mon, base_dir: str, port: int, on_quit=None):
                     cfg["ssid_list"] = items
                     monitor.sync_legacy_ssid(cfg)
                 for key in ("allow_renew_ip", "allow_restart_adapter", "only_on_campus",
-                            "open_browser", "tray"):
+                            "open_browser", "tray", "tray_overflow"):
                     if isinstance(data.get(key), bool):
                         cfg[key] = data[key]
                 for key, lo, hi in (("min_interval_seconds", 1, 600), ("max_fail", 1, 99),

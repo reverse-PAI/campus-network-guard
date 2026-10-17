@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import ctypes
 import os
+import sys
 import threading
+import time
 from ctypes import wintypes
 
 import winutil as wu
@@ -120,8 +122,9 @@ def _load_icon() -> int:
 class Tray:
 
     def __init__(self, on_open, on_toggle_pause, on_check, on_quit,
-                 paused=None, status=None, logger=None):
+                 paused=None, status=None, logger=None, overflow=True):
         self._open = on_open
+        self._overflow = bool(overflow)
         self._toggle = on_toggle_pause
         self._check = on_check
         self._quit = on_quit
@@ -193,9 +196,28 @@ class Tray:
                     break
         if ok:
             self._say("info", "托盘图标已就绪（左键打开面板，右键出菜单）")
+            self._place_icon()
         else:
             self._say("warning", "托盘图标添加失败，关闭窗口后请重新启动程序")
         return ok
+
+    def _place_icon(self) -> None:
+        # 源码运行时托盘图标属于 python.exe，不改它的系统设置；打包后才处理。
+        if not getattr(sys, "frozen", False):
+            return
+
+        def work() -> None:
+            # 新图标的注册表条目由 Explorer 异步创建，重试几次再放弃。
+            for _ in range(12):
+                try:
+                    if wu.set_tray_promoted(not self._overflow):
+                        return
+                except Exception:
+                    return
+                time.sleep(0.25)
+            self._say("warning", "托盘图标位置没能自动切换，可在任务栏设置里手动调整")
+
+        threading.Thread(target=work, name="tray-place", daemon=True).start()
 
     def _del_icon(self) -> None:
         if self._hwnd:

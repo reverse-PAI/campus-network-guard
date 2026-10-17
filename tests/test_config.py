@@ -43,6 +43,9 @@ class FixConfigTest(unittest.TestCase):
         self.assertTrue(fix({"open_browser": "是"})[0]["open_browser"])
         self.assertFalse(fix({"tray": "0"})[0]["tray"])
         self.assertTrue(fix({"tray": "on"})[0]["tray"])
+        self.assertTrue(fix({})[0]["tray_overflow"])
+        self.assertFalse(fix({"tray_overflow": "0"})[0]["tray_overflow"])
+        self.assertTrue(fix({"tray_overflow": "on"})[0]["tray_overflow"])
 
     def test_missing_keys_get_defaults(self):
         fixed, _ = fix({})

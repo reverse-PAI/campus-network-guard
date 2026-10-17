@@ -30,6 +30,65 @@ def res_dir() -> str:
         return getattr(sys, "_MEIPASS", app_dir())
     return os.path.dirname(os.path.abspath(__file__))
 
+def _norm_exe_path(path: str) -> str:
+    try:
+        p = os.path.expandvars(str(path or "").strip().strip('"'))
+        if p.startswith("\\\\?\\"):
+            p = p[4:]
+        return os.path.normcase(os.path.normpath(os.path.abspath(p)))
+    except Exception:
+        return ""
+
+def set_tray_promoted(promoted: bool, exe_path: str = "") -> int:
+    """把当前 exe 的托盘图标设为始终显示(True)或收进 ^ 溢出区(False)。
+
+    Windows 把每个托盘图标的显示位置存在
+    HKCU\\Control Panel\\NotifyIconSettings\\<条目>\\IsPromoted。
+    这里只改这个每用户显示设置，不碰程序配置；返回改到的条目数。
+    """
+    if not exe_path:
+        if not getattr(sys, "frozen", False):
+            return 0
+        exe_path = sys.executable
+    target = _norm_exe_path(exe_path)
+    if not target:
+        return 0
+    try:
+        import winreg
+    except Exception:
+        return 0
+    base = r"Control Panel\NotifyIconSettings"
+    changed = 0
+    access = winreg.KEY_READ | winreg.KEY_WRITE
+    access |= getattr(winreg, "KEY_WOW64_64KEY", 0)
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, base, 0, access) as root:
+            index = 0
+            while True:
+                try:
+                    name = winreg.EnumKey(root, index)
+                except OSError:
+                    break
+                index += 1
+                try:
+                    with winreg.OpenKey(root, name, 0, access) as key:
+                        try:
+                            raw, kind = winreg.QueryValueEx(key, "ExecutablePath")
+                        except OSError:
+                            continue
+                        if kind not in (winreg.REG_SZ, winreg.REG_EXPAND_SZ):
+                            continue
+                        if _norm_exe_path(raw) != target:
+                            continue
+                        winreg.SetValueEx(key, "IsPromoted", 0, winreg.REG_DWORD,
+                                          1 if promoted else 0)
+                        changed += 1
+                except OSError:
+                    continue
+    except OSError:
+        return changed
+    return changed
+
 def is_admin() -> bool:
     try:
         return bool(ctypes.windll.shell32.IsUserAnAdmin())

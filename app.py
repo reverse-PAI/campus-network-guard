@@ -73,7 +73,7 @@ def start_tray(mon, server, url: str, holder: dict) -> None:
             on_quit=lambda: quit_app(mon, server, holder),
             paused=lambda: bool(mon.state.get("paused")),
             status=lambda: mon.state.get("status_text") or "",
-            logger=mon.log)
+            logger=mon.log, overflow=bool(mon.cfg.get("tray_overflow", True)))
         holder["tray"].start()
     except Exception as exc:
         mon.log.warning("托盘图标没能启动：%s", exc)

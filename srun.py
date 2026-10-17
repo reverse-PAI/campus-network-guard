@@ -95,20 +95,54 @@ def chksum_of(token: str, username: str, hmd5_hex: str, acid: str, ip: str,
     return hashlib.sha1(s.encode("utf-8")).hexdigest()
 
 
+def normalize_host(host: str) -> str:
+    """把用户填的认证服务器整理成 host[:port]，容忍 http:// 前缀、结尾斜杠和路径。"""
+    h = (host or "").strip()
+    for prefix in ("http://", "https://"):
+        if h.lower().startswith(prefix):
+            h = h[len(prefix):]
+            break
+    h = h.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    return h.strip()
+
+
+def split_host_port(host: str, default_port: int = 80) -> tuple:
+    h = normalize_host(host)
+    if h.startswith("["):
+        end = h.find("]")
+        if end > 0:
+            name, rest = h[1:end], h[end + 1:]
+            if rest.startswith(":") and rest[1:].isdigit():
+                return name, int(rest[1:])
+            return name, default_port
+    if h.count(":") == 1:
+        name, _, port_text = h.rpartition(":")
+        if name and port_text.isdigit():
+            port = int(port_text)
+            return name, port if 1 <= port <= 65535 else default_port
+    return h, default_port
+
+
 def local_ip(host: str = DEFAULT_HOST) -> str:
+    name, port = split_host_port(host)
+    if not name:
+        return ""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s.connect((host, 80))
+        s.connect((name, port))
         return s.getsockname()[0]
-    except OSError:
+    except (OSError, OverflowError):
         return ""
     finally:
         s.close()
 
 
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 def _http_get(url: str, timeout: float = 6.0) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": wu.UA, "Accept": "*/*"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _OPENER.open(req, timeout=timeout) as resp:
         return resp.read().decode("utf-8", "replace")
 
 
@@ -125,7 +159,7 @@ class SrunPortal:
                  acid: str = DEFAULT_ACID, timeout: float = 6.0):
         self.username = username
         self.password = password
-        self.host = host
+        self.host = normalize_host(host)
         self.acid = str(acid)
         self.timeout = timeout
 
@@ -186,7 +220,9 @@ class SrunPortal:
         except Exception as exc:
             return {"ok": False, "ecode": None, "error_msg": "登录请求失败: %s" % exc, "ip": ip}
         res["ip"] = ip
-        res["ok"] = str(res.get("ecode")) == "0" or res.get("error") == "ok"
+        # 有的门户已在线时 ecode 直接返回 "ip_already_online_error"，同样算认证成功
+        ecode = str(res.get("ecode"))
+        res["ok"] = ecode == "0" or res.get("error") == "ok" or ecode == "ip_already_online_error"
         return res
 
     def logout(self) -> dict:

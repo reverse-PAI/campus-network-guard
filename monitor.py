@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import ctypes, datetime, json, logging, os, socket, tempfile, threading, time, urllib.request
+import ctypes, datetime, json, logging, os, socket, sys, tempfile, threading, time, urllib.request
 from collections import deque
 from ctypes import wintypes
 
@@ -9,7 +9,7 @@ import winutil as wu
 from ssid_rules import (MAX_SSID_ITEMS, MAX_SSID_LEN, normalize_ssid_list,
                         ssid_key, ssid_matches, sync_legacy_ssid)
 
-APP_VERSION = "1.3.2"
+APP_VERSION = "1.3.3"
 
 DEFAULTS = {
     "username": "", "portal_host": "", "ac_id": "1",
@@ -54,7 +54,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_OPENER = urllib.request.build_opener(_NoRedirect())
+# 显式禁用系统代理：断网/认证探测走代理会被代理返回的页面误判成“正常”
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
 
 
 def probe(timeout: float = 5.0) -> tuple[bool, str]:
@@ -70,7 +71,7 @@ def probe(timeout: float = 5.0) -> tuple[bool, str]:
                 return True, "%s -> 204" % url
             if marker is not None and marker in body:
                 return True, "%s -> 正常" % url
-            if code == 200 and not body:
+            if marker is None and code == 200 and not body:
                 return True, "%s -> 200(空)" % url
             detail = "%s -> 被劫持/内容异常(code=%s)" % (url, code)
         except Exception as exc:
@@ -130,7 +131,7 @@ def build_logger(logdir: str, ring: deque, console: bool = True) -> logging.Logg
     rh = _Ring(ring)
     rh.setFormatter(logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S"))
     lg.addHandler(rh)
-    if console:
+    if console and sys.stderr is not None:
         ch = logging.StreamHandler()
         ch.setFormatter(full)
         lg.addHandler(ch)
@@ -376,8 +377,11 @@ class Monitor:
                                self.cfg["portal_host"], self.cfg["ac_id"])
 
     def _portal_reachable(self, timeout: float = 2.0) -> bool:
+        host, port = srun.split_host_port(self.cfg["portal_host"])
+        if not host:
+            return False
         try:
-            with socket.create_connection((self.cfg["portal_host"], 80), timeout):
+            with socket.create_connection((host, port), timeout):
                 return True
         except Exception:
             return False
@@ -386,8 +390,12 @@ class Monitor:
         if not self.cfg["username"] or not self.password:
             self.log.warning("未配置账号或密码，跳过 SRun 认证")
             return
+        host = srun.normalize_host(self.cfg["portal_host"])
+        if not host:
+            self.log.warning("未配置认证服务器，跳过 SRun 认证")
+            return
         if not self._portal_reachable():
-            self.log.info("认证服务器 %s 不可达，跳过 SRun 认证", self.cfg["portal_host"])
+            self.log.info("认证服务器 %s 不可达，跳过 SRun 认证", host)
             return
         res = self._portal().login()
         if res.get("ok"):
@@ -564,6 +572,8 @@ class Monitor:
     def test_login(self) -> dict:
         if not self.cfg["username"] or not self.password:
             return {"ok": False, "error_msg": "尚未配置账号或密码"}
+        if not srun.normalize_host(self.cfg["portal_host"]):
+            return {"ok": False, "error_msg": "尚未配置认证服务器"}
         try:
             return self._portal().login()
         except Exception as exc:

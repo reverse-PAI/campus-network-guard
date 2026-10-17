@@ -25,7 +25,7 @@ def start(mon, base_dir: str, port: int, on_quit=None):
     ui_path = os.path.join(base_dir, "ui.html")
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "ShouWangUI/1.3.2"
+        server_version = "ShouWangUI/1.3.3"
         protocol_version = "HTTP/1.1"
         timeout = 15
 
@@ -163,7 +163,8 @@ def start(mon, base_dir: str, port: int, on_quit=None):
                 for key in ("username", "portal_host", "ac_id", "interface"):
                     if data.get(key) is not None:
                         val = str(data[key]).strip()
-                        cfg[key] = val or ("WLAN" if key == "interface" else "")
+                        cfg[key] = val or ("WLAN" if key == "interface"
+                                           else "1" if key == "ac_id" else "")
                 list_saved = data.get("ssid_list") is not None
                 if list_saved:
                     items = monitor.normalize_ssid_list(data.get("ssid_list"))
@@ -175,9 +176,20 @@ def start(mon, base_dir: str, port: int, on_quit=None):
                         items = [x for x in items if monitor.ssid_key(x) not in drop]
                     cfg["ssid_list"] = items
                     monitor.sync_legacy_ssid(cfg)
-                for key in ("allow_renew_ip", "allow_restart_adapter", "only_on_campus", "open_browser"):
+                for key in ("allow_renew_ip", "allow_restart_adapter", "only_on_campus",
+                            "open_browser", "tray"):
                     if isinstance(data.get(key), bool):
                         cfg[key] = data[key]
+                for key, lo, hi in (("min_interval_seconds", 1, 600), ("max_fail", 1, 99),
+                                    ("cooldown_seconds", 0, 86400)):
+                    raw = data.get(key)
+                    if raw is None or str(raw).strip() == "":
+                        continue
+                    try:
+                        val = int(float(raw))
+                    except (TypeError, ValueError, OverflowError):
+                        continue
+                    cfg[key] = max(lo, min(hi, val))
                 msg = "设置已保存"
                 raw = data.get("periodic_seconds")
                 if raw is not None and str(raw).strip() != "":

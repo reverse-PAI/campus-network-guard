@@ -96,7 +96,6 @@ def chksum_of(token: str, username: str, hmd5_hex: str, acid: str, ip: str,
 
 
 def _strip_host(host: str) -> str:
-    """剥掉协议、路径、查询和锚点，只留 host[:port] 原文。"""
     h = (host or "").strip()
     for prefix in ("http://", "https://"):
         if h.lower().startswith(prefix):
@@ -128,7 +127,6 @@ def split_host_port(host: str, default_port: int = 80) -> tuple:
 
 
 def normalize_host(host: str) -> str:
-    """把用户填的认证服务器整理成能直接拼进 URL 的 host[:port]。"""
     name, port = split_host_port(host)
     if not name:
         return ""
@@ -234,7 +232,6 @@ class SrunPortal:
         except Exception as exc:
             return {"ok": False, "ecode": None, "error_msg": "登录请求失败: %s" % exc, "ip": ip}
         res["ip"] = ip
-        # 有的门户已在线时 ecode 直接返回 "ip_already_online_error"，同样算认证成功
         ecode = str(res.get("ecode"))
         res["ok"] = ecode == "0" or res.get("error") == "ok" or ecode == "ip_already_online_error"
         return res

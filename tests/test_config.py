@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     import monitor
-except Exception as exc:  # pragma: no cover - 非 Windows 环境
+except Exception as exc:
     monitor = None
     _IMPORT_ERR = exc
 

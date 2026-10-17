@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     import monitor
     import webui
-except Exception:  # pragma: no cover - 非 Windows 环境
+except Exception:
     monitor = None
     webui = None
 

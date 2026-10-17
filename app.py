@@ -17,7 +17,8 @@ import winutil as wu
 
 
 def panel_url(mon, port: int) -> str:
-    for p in (port, int(mon.cfg.get("port") or 8765)):
+    fallback = int(mon.cfg.get("port") or 8765)
+    for p in dict.fromkeys((port, fallback)):
         try:
             with urllib.request.urlopen("http://127.0.0.1:%d/api/state?from=0" % p,
                                         timeout=0.6) as res:
@@ -25,7 +26,7 @@ def panel_url(mon, port: int) -> str:
                     return "http://127.0.0.1:%d/" % p
         except Exception:
             continue
-    return "http://127.0.0.1:%d/" % (int(mon.cfg.get("port") or 8765))
+    return "http://127.0.0.1:%d/" % fallback
 
 
 def poke_panel(url: str) -> bool:

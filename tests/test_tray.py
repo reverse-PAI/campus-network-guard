@@ -6,13 +6,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     import winutil
-except Exception:  # pragma: no cover - 非 Windows 环境
+except Exception:
     winutil = None
 
 
 @unittest.skipIf(winutil is None, "winutil 依赖 Windows 才能导入")
 class TrayRegistryTest(unittest.TestCase):
     def test_normalize_windows_path(self):
+        self.assertEqual(winutil._norm_exe_path(""), "")
+        self.assertEqual(winutil._norm_exe_path("   "), "")
         self.assertEqual(winutil._norm_exe_path(r"\\?\C:\App\App.exe"),
                          os.path.normcase(os.path.abspath(r"C:\App\App.exe")))
         self.assertEqual(winutil._norm_exe_path('"C:\\App\\App.exe"'),

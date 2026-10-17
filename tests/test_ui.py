@@ -8,7 +8,7 @@ sys.path.insert(0, ROOT)
 
 try:
     import monitor
-except Exception:  # pragma: no cover
+except Exception:
     monitor = None
 
 

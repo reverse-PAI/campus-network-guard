@@ -260,11 +260,11 @@ function ssidKey(v){ return String(v == null ? "" : v).trim().toLowerCase().repl
 function ssidMatch(name, list){
   var cur = ssidKey(name);
   if (!cur) return false;
-  var pats = [];
-  (list || []).forEach(function(x){ var k = ssidKey(x); if (k) pats.push(k); });
-  if (pats.indexOf(cur) >= 0) return true;
+  var pats = list || [];
   for (var i = 0; i < pats.length; i++){
-    var p = pats[i];
+    var p = ssidKey(pats[i]);
+    if (!p) continue;
+    if (p === cur) return true;
     if (p.charAt(p.length - 1) === "*" && cur.indexOf(p.slice(0, -1)) === 0) return true;
   }
   return false;
@@ -355,21 +355,21 @@ function openPick(profiles, currentSsid){
 
 function pickApply(){
   var boxes = $("pickList").querySelectorAll("input[type=checkbox]");
-  var known = {}, keep = {}, chosen = [];
+  var known = Object.create(null), keep = Object.create(null), chosen = [];
   for (var i = 0; i < boxes.length; i++){
     var k = ssidKey(boxes[i].value);
     known[k] = true;
     if (boxes[i].checked){ keep[k] = true; chosen.push(boxes[i].value); }
   }
-  // 已保存过的 WiFi 按原顺序保留或移除；手动输入的规则原样保留；新勾选的追加在末尾。
+  var nextKeys = Object.create(null);
   var next = ssidList.filter(function(x){
     var key = ssidKey(x);
+    nextKeys[key] = true;
     return known[key] ? !!keep[key] : true;
   });
   chosen.forEach(function(name){
-    var key = ssidKey(name), dup = false;
-    for (var j = 0; j < next.length; j++){ if (ssidKey(next[j]) === key){ dup = true; break; } }
-    if (!dup && next.length < 32) next.push(name);
+    var key = ssidKey(name);
+    if (!nextKeys[key] && next.length < 32){ next.push(name); nextKeys[key] = true; }
   });
   ssidList = next;
   $("pick").className = "";

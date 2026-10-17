@@ -202,12 +202,10 @@ class Tray:
         return ok
 
     def _place_icon(self) -> None:
-        # 源码运行时托盘图标属于 python.exe，不改它的系统设置；打包后才处理。
         if not getattr(sys, "frozen", False):
             return
 
         def work() -> None:
-            # 新图标的注册表条目由 Explorer 异步创建，重试几次再放弃。
             for _ in range(12):
                 try:
                     if wu.set_tray_promoted(not self._overflow):

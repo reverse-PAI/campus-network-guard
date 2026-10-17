@@ -47,10 +47,9 @@ def start(mon, base_dir: str, port: int, on_quit=None):
             self._send(200, json.dumps(obj, ensure_ascii=False).encode("utf-8"),
                        "application/json; charset=utf-8")
 
-        def _body(self) -> dict:
+        def _body(self, size: int) -> dict:
             try:
-                n = int(self.headers.get("Content-Length") or 0)
-                obj = json.loads(self.rfile.read(n).decode("utf-8")) if n else {}
+                obj = json.loads(self.rfile.read(size).decode("utf-8")) if size else {}
                 return obj if isinstance(obj, dict) else {}
             except Exception:
                 return {}
@@ -116,7 +115,7 @@ def start(mon, base_dir: str, port: int, on_quit=None):
                 self.close_connection = True
                 self._send(413, b"too large", "text/plain; charset=utf-8")
                 return
-            data = self._body()
+            data = self._body(size)
             if urlparse(self.path).path != "/api/action":
                 self._send(404, b"not found", "text/plain; charset=utf-8")
                 return

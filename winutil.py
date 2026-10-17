@@ -33,6 +33,8 @@ def res_dir() -> str:
 def _norm_exe_path(path: str) -> str:
     try:
         p = os.path.expandvars(str(path or "").strip().strip('"'))
+        if not p:
+            return ""
         if p.startswith("\\\\?\\"):
             p = p[4:]
         return os.path.normcase(os.path.normpath(os.path.abspath(p)))
@@ -40,12 +42,6 @@ def _norm_exe_path(path: str) -> str:
         return ""
 
 def set_tray_promoted(promoted: bool, exe_path: str = "") -> int:
-    """把当前 exe 的托盘图标设为始终显示(True)或收进 ^ 溢出区(False)。
-
-    Windows 把每个托盘图标的显示位置存在
-    HKCU\\Control Panel\\NotifyIconSettings\\<条目>\\IsPromoted。
-    这里只改这个每用户显示设置，不碰程序配置；返回改到的条目数。
-    """
     if not exe_path:
         if not getattr(sys, "frozen", False):
             return 0
@@ -323,11 +319,10 @@ def set_autostart(enable: bool) -> tuple[bool, str]:
         os.makedirs(startup_dir(), exist_ok=True)
         exe, args = launch_target(True)
         cmd_line = " ".join('"%s"' % x for x in [exe] + args)
-        body = ("' 由 %s 生成：开机静默启动，不弹黑框\n"
-                "Set sh = CreateObject(\"WScript.Shell\")\n"
+        body = ("Set sh = CreateObject(\"WScript.Shell\")\n"
                 "sh.CurrentDirectory = \"%s\"\n"
                 "sh.Run \"%s\", 0, False\n"
-                % (APP_NAME, app_dir(), cmd_line.replace('"', '""')))
+                % (app_dir(), cmd_line.replace('"', '""')))
         with open(path, "w", encoding="utf-16") as fh:
             fh.write(body)
         try:

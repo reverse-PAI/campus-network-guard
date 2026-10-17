@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     import monitor
     import srun
-except Exception:  # pragma: no cover - 非 Windows 环境
+except Exception:
     monitor = None
     srun = None
 
@@ -113,7 +113,6 @@ class SrunHostTest(unittest.TestCase):
 
 @unittest.skipIf(srun is None, "srun 依赖 Windows 才能导入")
 class SrunResultTest(unittest.TestCase):
-    # 假门户必须在方法里定义：类体在导入模块时求值，非 Windows 下 srun=None 会直接崩
     def make_portal(self, res):
         class FakePortal(srun.SrunPortal):
             def __init__(self):

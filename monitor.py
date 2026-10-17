@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import ctypes, datetime, json, logging, os, socket, sys, tempfile, threading, time, urllib.request
+import ctypes, datetime, json, logging, math, os, socket, sys, tempfile, threading, time, urllib.request
 from collections import deque
 from ctypes import wintypes
 
@@ -54,7 +54,6 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-# 显式禁用系统代理：断网/认证探测走代理会被代理返回的页面误判成“正常”
 _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
 
 
@@ -157,7 +156,7 @@ def _fix_config(cfg: dict) -> tuple:
                 num = float(raw)
             except (TypeError, ValueError):
                 num = float(default)
-            if num != num or num in (float("inf"), float("-inf")):
+            if not math.isfinite(num):
                 num = float(default)
             lo, hi = limits[key]
             if not lo <= num <= hi:
@@ -177,7 +176,6 @@ def _fix_config(cfg: dict) -> tuple:
 
 
 class Monitor:
-    # 测试可替换 probe_fn 注入假探测结果，避免真发网络请求
     probe_fn = staticmethod(probe)
 
     def __init__(self, base_dir: str, console: bool = True):
@@ -334,6 +332,7 @@ class Monitor:
             ok, detail = self._probe()
             ts = _now()
             wlan = wu.wlan_state()
+            today = _today()
             with self.lock:
                 was_down = self.state["status"] in ("offline", "recovering", "other")
                 self.state["ssid"] = wlan.get("ssid", "")
@@ -342,8 +341,8 @@ class Monitor:
                 self.state["last_check_trigger"] = trigger
                 self.state["last_probe"] = detail
                 self.state["checks"] += 1
-                if self.state["today"] != _today():
-                    self.state["today"] = _today()
+                if self.state["today"] != today:
+                    self.state["today"] = today
                     self.state["today_down"] = 0
                 if ok:
                     self.state["status"] = "online"
@@ -588,12 +587,12 @@ class Monitor:
             return {"ok": False, "error_msg": str(exc)}
 
     def snapshot(self, log_from: int = 0) -> dict:
+        now = time.time()
         with self.lock:
             st = dict(self.state)
-        cd = st.get("cooldown_until") or 0
-        st["cooldown_left"] = int(cd - time.time()) if cd and time.time() < cd else 0
-        with self.lock:
             st["cfg"] = {k: v for k, v in self.cfg.items() if k != "password"}
+        cd = st.get("cooldown_until") or 0
+        st["cooldown_left"] = int(cd - now) if cd and now < cd else 0
         st["cfg"]["has_password"] = bool(self.password)
         st["cfg"]["periodic_min"] = MIN_PERIODIC
         st["cfg"]["periodic_max"] = MAX_PERIODIC

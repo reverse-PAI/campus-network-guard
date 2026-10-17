@@ -9,7 +9,7 @@ import winutil as wu
 from ssid_rules import (MAX_SSID_ITEMS, MAX_SSID_LEN, normalize_ssid_list,
                         ssid_key, ssid_matches, sync_legacy_ssid)
 
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.3.2"
 
 DEFAULTS = {
     "username": "", "portal_host": "", "ac_id": "1",

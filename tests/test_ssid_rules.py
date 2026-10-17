@@ -10,7 +10,7 @@ from ssid_rules import (MAX_SSID_ITEMS, is_wildcard, normalize_ssid_list,
 
 class SsidKeyTest(unittest.TestCase):
     def test_trims_and_casefolds(self):
-        self.assertEqual(ssid_key("  QHNU-CMCC "), "qhNu-cmcc".casefold())
+        self.assertEqual(ssid_key("  Campus-WiFi "), "caMpus-WiFi".casefold())
 
     def test_non_string_is_empty(self):
         self.assertEqual(ssid_key(None), "")
@@ -22,8 +22,8 @@ class NormalizeTest(unittest.TestCase):
         self.assertEqual(normalize_ssid_list("  A  "), ["A"])
 
     def test_dedup_casefold_keeps_order(self):
-        self.assertEqual(normalize_ssid_list(["QHNU-CMCC", " qhnu-cmcc ", "Campus-WiFi"]),
-                         ["QHNU-CMCC", "Campus-WiFi"])
+        self.assertEqual(normalize_ssid_list(["Campus-WiFi", " campus-wifi ", "Campus-5G"]),
+                         ["Campus-WiFi", "Campus-5G"])
 
     def test_drops_empty_and_non_strings(self):
         self.assertEqual(normalize_ssid_list(["", "  ", None, 3.5, [], "ok"]), ["3.5", "ok"])
@@ -40,21 +40,21 @@ class NormalizeTest(unittest.TestCase):
 
 class MatchTest(unittest.TestCase):
     def test_exact_case_insensitive(self):
-        self.assertTrue(ssid_matches("QHNU-CMCC", ["qhnu-cmcc"]))
-        self.assertFalse(ssid_matches("QHNU", ["QHNU-CMCC"]))
-        self.assertFalse(ssid_matches("QHNU-CMCC", ["QHNU"]))
-        self.assertFalse(ssid_matches("", ["QHNU-*"]))
-        self.assertFalse(ssid_matches("QHNU-CMCC", []))
+        self.assertTrue(ssid_matches("Campus-WiFi", ["campus-wifi"]))
+        self.assertFalse(ssid_matches("Campus", ["Campus-WiFi"]))
+        self.assertFalse(ssid_matches("Campus-WiFi", ["Campus"]))
+        self.assertFalse(ssid_matches("", ["Campus-*"]))
+        self.assertFalse(ssid_matches("Campus-WiFi", []))
 
     def test_prefix_wildcard(self):
-        self.assertTrue(ssid_matches("QHNU-CMCC", ["QHNU-*"]))
-        self.assertTrue(ssid_matches("QHNU-*", ["QHNU-*"]))
-        self.assertFalse(ssid_matches("CMCC-QHNU", ["QHNU-*"]))
+        self.assertTrue(ssid_matches("Campus-WiFi", ["Campus-*"]))
+        self.assertTrue(ssid_matches("Campus-*", ["Campus-*"]))
+        self.assertFalse(ssid_matches("WiFi-Campus", ["Campus-*"]))
 
     def test_fullwidth_star(self):
-        self.assertTrue(ssid_matches("QHNU-CMCC", ["QHNU-\uff0a"]))
-        self.assertTrue(is_wildcard("QHNU-\uff0a"))
-        self.assertFalse(is_wildcard("QHNU-CMCC"))
+        self.assertTrue(ssid_matches("Campus-WiFi", ["Campus-\uff0a"]))
+        self.assertTrue(is_wildcard("Campus-\uff0a"))
+        self.assertFalse(is_wildcard("Campus-WiFi"))
 
     def test_star_alone_matches_any_non_empty(self):
         self.assertTrue(ssid_matches("anything", ["*"]))
@@ -63,12 +63,12 @@ class MatchTest(unittest.TestCase):
 
 class LegacyTest(unittest.TestCase):
     def test_sync_picks_first_non_wildcard(self):
-        cfg = {"ssid_list": ["QHNU-*", "Campus-WiFi"], "ssid": ""}
+        cfg = {"ssid_list": ["Campus-*", "Campus-WiFi"], "ssid": ""}
         sync_legacy_ssid(cfg)
         self.assertEqual(cfg["ssid"], "Campus-WiFi")
 
     def test_sync_wildcard_only(self):
-        cfg = {"ssid_list": ["QHNU-*"], "ssid": "old"}
+        cfg = {"ssid_list": ["Campus-*"], "ssid": "old"}
         sync_legacy_ssid(cfg)
         self.assertEqual(cfg["ssid"], "")
 

@@ -20,16 +20,16 @@ def fix(cfg):
 @unittest.skipIf(monitor is None, "monitor 依赖 Windows 才能导入")
 class FixConfigTest(unittest.TestCase):
     def test_legacy_ssid_migrates_only_when_list_empty(self):
-        fixed, notes = fix({"ssid": " QHNU-CMCC ", "ssid_list": []})
-        self.assertEqual(fixed["ssid_list"], ["QHNU-CMCC"])
+        fixed, notes = fix({"ssid": " Campus-WiFi ", "ssid_list": []})
+        self.assertEqual(fixed["ssid_list"], ["Campus-WiFi"])
         self.assertTrue(notes)
 
-        fixed, _ = fix({"ssid": "QHNU-CMCC", "ssid_list": ["Campus-WiFi"]})
+        fixed, _ = fix({"ssid": "Campus-WiFi", "ssid_list": ["Campus-WiFi"]})
         self.assertEqual(fixed["ssid_list"], ["Campus-WiFi"])
 
     def test_ssid_list_is_cleaned(self):
-        fixed, _ = fix({"ssid_list": ["", " QHNU-CMCC ", "qhnu-cmcc", 7]})
-        self.assertEqual(fixed["ssid_list"], ["QHNU-CMCC", "7"])
+        fixed, _ = fix({"ssid_list": ["", " Campus-WiFi ", "campus-wifi", 7]})
+        self.assertEqual(fixed["ssid_list"], ["Campus-WiFi", "7"])
 
     def test_period_and_port_are_clamped(self):
         self.assertEqual(fix({"periodic_seconds": 1})[0]["periodic_seconds"], 30)
@@ -57,11 +57,11 @@ class PersistenceTest(unittest.TestCase):
         d = tempfile.mkdtemp(prefix="sw_cfg_")
         mon = monitor.Monitor(d, console=False)
         try:
-            mon.cfg["ssid_list"] = ["QHNU-CMCC", "QHNU-*"]
+            mon.cfg["ssid_list"] = ["Campus-WiFi", "Campus-*"]
             mon.cfg["periodic_seconds"] = 120
             mon.save_config()
             loaded = monitor.Monitor(d, console=False).load_config()
-            self.assertEqual(loaded["ssid_list"], ["QHNU-CMCC", "QHNU-*"])
+            self.assertEqual(loaded["ssid_list"], ["Campus-WiFi", "Campus-*"])
             self.assertEqual(loaded["periodic_seconds"], 120)
             with open(mon.cfg_path, encoding="utf-8") as fh:
                 self.assertNotIn("password", json.load(fh))

@@ -9,7 +9,7 @@ import winutil as wu
 from ssid_rules import (MAX_SSID_ITEMS, MAX_SSID_LEN, normalize_ssid_list,
                         ssid_key, ssid_matches, sync_legacy_ssid)
 
-APP_VERSION = "1.3.3"
+APP_VERSION = "1.3.4"
 
 DEFAULTS = {
     "username": "", "portal_host": "", "ac_id": "1",
@@ -177,6 +177,9 @@ def _fix_config(cfg: dict) -> tuple:
 
 
 class Monitor:
+    # 测试可替换 probe_fn 注入假探测结果，避免真发网络请求
+    probe_fn = staticmethod(probe)
+
     def __init__(self, base_dir: str, console: bool = True):
         self.base_dir = base_dir
         self.cfg_path = os.path.join(base_dir, "config.json")
@@ -202,6 +205,9 @@ class Monitor:
                           admin=wu.is_admin(), autostart=wu.autostart_enabled())
         self._last_wall = time.time()
         self._last_mono = time.monotonic()
+
+    def _probe(self) -> tuple:
+        return self.probe_fn()
 
     def load_config(self) -> dict:
         cfg = dict(DEFAULTS)
@@ -325,7 +331,7 @@ class Monitor:
                 return False
             self.state["checking"] = True
         try:
-            ok, detail = probe()
+            ok, detail = self._probe()
             ts = _now()
             wlan = wu.wlan_state()
             with self.lock:
@@ -394,6 +400,8 @@ class Monitor:
         if not host:
             self.log.warning("未配置认证服务器，跳过 SRun 认证")
             return
+        if str(self.cfg["portal_host"]).strip().lower().startswith("https://"):
+            self.log.info("认证服务器填的是 https，程序只支持 http 门户，已按 http 尝试")
         if not self._portal_reachable():
             self.log.info("认证服务器 %s 不可达，跳过 SRun 认证", host)
             return
@@ -530,7 +538,7 @@ class Monitor:
                     fn()
                 except Exception as exc:
                     self.log.error("%s 出错：%s", name, exc)
-                ok, detail = probe()
+                ok, detail = self._probe()
                 if ok:
                     with self.lock:
                         self.state.update(status="online", status_text="网络已恢复", last_up=_now(),

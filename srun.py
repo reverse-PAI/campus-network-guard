@@ -95,32 +95,46 @@ def chksum_of(token: str, username: str, hmd5_hex: str, acid: str, ip: str,
     return hashlib.sha1(s.encode("utf-8")).hexdigest()
 
 
-def normalize_host(host: str) -> str:
-    """把用户填的认证服务器整理成 host[:port]，容忍 http:// 前缀、结尾斜杠和路径。"""
+def _strip_host(host: str) -> str:
+    """剥掉协议、路径、查询和锚点，只留 host[:port] 原文。"""
     h = (host or "").strip()
     for prefix in ("http://", "https://"):
         if h.lower().startswith(prefix):
             h = h[len(prefix):]
             break
-    h = h.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
-    return h.strip()
+    return h.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0].strip()
 
 
 def split_host_port(host: str, default_port: int = 80) -> tuple:
-    h = normalize_host(host)
+    h = _strip_host(host)
     if h.startswith("["):
         end = h.find("]")
         if end > 0:
             name, rest = h[1:end], h[end + 1:]
             if rest.startswith(":") and rest[1:].isdigit():
-                return name, int(rest[1:])
+                port = int(rest[1:])
+                return name, port if 1 <= port <= 65535 else default_port
             return name, default_port
     if h.count(":") == 1:
         name, _, port_text = h.rpartition(":")
-        if name and port_text.isdigit():
+        if not name:
+            return "", default_port
+        if port_text.isdigit():
             port = int(port_text)
-            return name, port if 1 <= port <= 65535 else default_port
+            if 1 <= port <= 65535:
+                return name, port
+        return name, default_port
     return h, default_port
+
+
+def normalize_host(host: str) -> str:
+    """把用户填的认证服务器整理成能直接拼进 URL 的 host[:port]。"""
+    name, port = split_host_port(host)
+    if not name:
+        return ""
+    if ":" in name:
+        name = "[%s]" % name
+    return name if port == 80 else "%s:%d" % (name, port)
 
 
 def local_ip(host: str = DEFAULT_HOST) -> str:

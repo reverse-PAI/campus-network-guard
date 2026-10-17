@@ -91,6 +91,18 @@ class SrunHostTest(unittest.TestCase):
         self.assertEqual(srun.split_host_port("10.0.0.1:99999"), ("10.0.0.1", 80))
         self.assertEqual(srun.split_host_port("10.0.0.1:0"), ("10.0.0.1", 80))
 
+    def test_invalid_port_falls_back_consistently(self):
+        for raw in ("10.0.0.1:99999", "10.0.0.1:0", "10.0.0.1:abc"):
+            with self.subTest(raw=raw):
+                self.assertEqual(srun.normalize_host(raw), "10.0.0.1")
+                self.assertEqual(srun.split_host_port(raw), ("10.0.0.1", 80))
+                self.assertEqual(srun.SrunPortal("u", "p", raw).host, "10.0.0.1")
+
+    def test_ipv6_round_trip_keeps_brackets(self):
+        self.assertEqual(srun.normalize_host("[::1]:8443"), "[::1]:8443")
+        self.assertEqual(srun.normalize_host("[::1]:99999"), "[::1]")
+        self.assertEqual(srun.normalize_host("http://[::1]:8080/"), "[::1]:8080")
+
     def test_local_ip_with_bad_port_does_not_raise(self):
         self.assertIsInstance(srun.local_ip("127.0.0.1:99999"), str)
 
@@ -101,16 +113,20 @@ class SrunHostTest(unittest.TestCase):
 
 @unittest.skipIf(srun is None, "srun 依赖 Windows 才能导入")
 class SrunResultTest(unittest.TestCase):
-    class FakePortal(srun.SrunPortal):
-        def __init__(self, res):
-            super().__init__("20260000000", "secret", "10.0.0.1")
-            self.res = res
+    # 假门户必须在方法里定义：类体在导入模块时求值，非 Windows 下 srun=None 会直接崩
+    def make_portal(self, res):
+        class FakePortal(srun.SrunPortal):
+            def __init__(self):
+                super().__init__("20260000000", "secret", "10.0.0.1")
+                self.res = res
 
-        def get_challenge(self, ip):
-            return {"challenge": "tok", "client_ip": ip}
+            def get_challenge(self, ip):
+                return {"challenge": "tok", "client_ip": ip}
 
-        def _get(self, path, params):
-            return dict(self.res)
+            def _get(self, path, params):
+                return dict(self.res)
+
+        return FakePortal()
 
     def test_success_ecodes(self):
         cases = [
@@ -123,7 +139,7 @@ class SrunResultTest(unittest.TestCase):
         ]
         for res, expect in cases:
             with self.subTest(res=res):
-                self.assertEqual(self.FakePortal(res).login()["ok"], expect)
+                self.assertEqual(self.make_portal(res).login()["ok"], expect)
 
 
 @unittest.skipIf(monitor is None, "monitor 依赖 Windows 才能导入")

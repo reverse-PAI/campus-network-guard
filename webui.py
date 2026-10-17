@@ -25,7 +25,7 @@ def start(mon, base_dir: str, port: int, on_quit=None):
     ui_path = os.path.join(base_dir, "ui.html")
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "ShouWangUI/1.3.3"
+        server_version = "ShouWangUI/1.3.4"
         protocol_version = "HTTP/1.1"
         timeout = 15
 

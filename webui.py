@@ -25,7 +25,7 @@ def start(mon, base_dir: str, port: int, on_quit=None):
     ui_path = os.path.join(base_dir, "ui.html")
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "ShouWangUI/1.2.2"
+        server_version = "ShouWangUI/1.3.1"
         protocol_version = "HTTP/1.1"
         timeout = 15
 
@@ -160,9 +160,21 @@ def start(mon, base_dir: str, port: int, on_quit=None):
                 return "已暂停监控" if paused else "已恢复监控", extra
             if action == "save":
                 cfg = mon.cfg
-                for key in ("username", "portal_host", "ac_id", "ssid", "interface"):
+                for key in ("username", "portal_host", "ac_id", "interface"):
                     if data.get(key) is not None:
-                        cfg[key] = str(data[key]).strip()
+                        val = str(data[key]).strip()
+                        cfg[key] = val or ("WLAN" if key == "interface" else "")
+                list_saved = data.get("ssid_list") is not None
+                if list_saved:
+                    items = monitor.normalize_ssid_list(data.get("ssid_list"))
+                    bogus = data.get("ignore_set") or []
+                    if not isinstance(bogus, (list, tuple)):
+                        bogus = []
+                    drop = {monitor.ssid_key(x) for x in bogus if isinstance(x, str)}
+                    if drop:
+                        items = [x for x in items if monitor.ssid_key(x) not in drop]
+                    cfg["ssid_list"] = items
+                    monitor.sync_legacy_ssid(cfg)
                 for key in ("allow_renew_ip", "allow_restart_adapter", "only_on_campus", "open_browser"):
                     if isinstance(data.get(key), bool):
                         cfg[key] = data[key]
@@ -191,6 +203,9 @@ def start(mon, base_dir: str, port: int, on_quit=None):
                     except Exception as exc:
                         msg = "密码保存失败：%s" % exc
                         extra = {"ok_flag": False}
+                if list_saved and msg == "设置已保存":
+                    n = len(cfg["ssid_list"])
+                    msg = ("守护网络已保存：%d 个 WiFi" % n) if n else "守护网络已清空：不再按 WiFi 判断"
                 mon.save_config()
                 mon.log.info("设置已更新：%s", msg)
                 return msg, extra
@@ -203,6 +218,12 @@ def start(mon, base_dir: str, port: int, on_quit=None):
                 ok, msg = wu.create_desktop_shortcut()
                 mon.log.info(msg)
                 return msg, {"ok_flag": ok}
+            if action == "list_profiles":
+                profiles = wu.wlan_profiles()
+                ssid = wu.wlan_state().get("ssid", "")
+                extra = {"profiles": profiles, "ssid": ssid}
+                msg = ("已读取 %d 个已保存的 WiFi" % len(profiles)) if profiles else "没有读到已保存的 WiFi 配置"
+                return msg, extra
             if action == "clear_logs":
                 mon.ring.clear()
                 return "日志已清空", extra

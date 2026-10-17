@@ -6,12 +6,14 @@ from ctypes import wintypes
 
 import srun
 import winutil as wu
+from ssid_rules import (MAX_SSID_ITEMS, MAX_SSID_LEN, normalize_ssid_list,
+                        ssid_key, ssid_matches, sync_legacy_ssid)
 
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.3.1"
 
 DEFAULTS = {
     "username": "", "portal_host": "", "ac_id": "1",
-    "ssid": "", "interface": "WLAN", "only_on_campus": True,
+    "ssid": "", "ssid_list": [], "last_ssid": "", "interface": "WLAN", "only_on_campus": True,
     "periodic_seconds": 300, "min_interval_seconds": 8, "allow_renew_ip": True,
     "allow_restart_adapter": False, "max_fail": 5, "cooldown_seconds": 600,
     "port": 8765, "open_browser": True, "tray": True,
@@ -101,7 +103,11 @@ class _Ring(logging.Handler):
 def build_logger(logdir: str, ring: deque, console: bool = True) -> logging.Logger:
     lg = logging.getLogger("shouwang")
     lg.setLevel(logging.INFO)
-    lg.handlers.clear()
+    for old in list(lg.handlers):
+        try:
+            old.close()
+        finally:
+            lg.removeHandler(old)
     lg.propagate = False
     full = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
     for target in (logdir, tempfile.gettempdir()):
@@ -138,7 +144,9 @@ def _fix_config(cfg: dict) -> tuple:
     for key, default in DEFAULTS.items():
         raw = cfg.get(key, default)
         val = raw
-        if isinstance(default, bool):
+        if isinstance(default, list):
+            val = normalize_ssid_list(raw)
+        elif isinstance(default, bool):
             if isinstance(raw, str):
                 val = raw.strip().lower() in ("1", "true", "yes", "on", "是")
             else:
@@ -159,6 +167,11 @@ def _fix_config(cfg: dict) -> tuple:
         if val != raw:
             notes.append("%s→%s" % (key, val))
         out[key] = val
+    if not out["ssid_list"] and ssid_key(out["ssid"]):
+        out["ssid_list"] = [out["ssid"].strip()]
+        notes.append("ssid_list←ssid")
+    sync_legacy_ssid(out)
+    out["last_ssid"] = str(out["last_ssid"] or "").strip()[:MAX_SSID_LEN]
     return out, notes
 
 
@@ -205,9 +218,11 @@ class Monitor:
 
     def save_config(self) -> None:
         try:
+            with self.lock:
+                data = json.dumps(self.cfg, ensure_ascii=False, indent=2)
             tmp = self.cfg_path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as fh:
-                json.dump(self.cfg, fh, ensure_ascii=False, indent=2)
+                fh.write(data)
             os.replace(tmp, self.cfg_path)
         except Exception as exc:
             self.log.error("保存配置失败：%s", exc)
@@ -331,6 +346,12 @@ class Monitor:
                     self.state["last_action"] = ""
                     if was_down:
                         self.state["last_up"] = ts
+                    cur = self.state.get("ssid") or ""
+                    if (self.cfg.get("ssid_list") and ssid_key(cur)
+                            and ssid_matches(cur, self.cfg["ssid_list"])
+                            and self.cfg.get("last_ssid") != cur):
+                        self.cfg["last_ssid"] = cur
+                        self.save_config()
                 else:
                     if not was_down:
                         self.state["last_down"] = ts
@@ -382,15 +403,72 @@ class Monitor:
         self.stop_evt.wait(2.0)
         self._srun_step("（renew 之后）")
 
+    def _wifi_candidates(self) -> list:
+        names = list(self.cfg.get("ssid_list") or [])
+        if not names:
+            return []
+        profiles = wu.wlan_profiles()
+        out, seen = [], set()
+
+        def add(name) -> None:
+            name = (name or "").strip()
+            key = ssid_key(name)
+            if key and key not in seen:
+                seen.add(key)
+                out.append(name)
+
+        last = ssid_key(self.cfg.get("last_ssid") or "")
+        if last:
+            add(self.cfg["last_ssid"])
+        for pat in names:
+            if ssid_key(pat).endswith("*"):
+                for profile in profiles:
+                    if ssid_matches(profile, [pat]):
+                        add(profile)
+            else:
+                add(pat)
+        return out
+
+    def _wait_wifi(self, name: str, timeout: float = 10.0) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.stop_evt.is_set():
+                return False
+            st = wu.wlan_state()
+            if ssid_key(st.get("ssid")) == ssid_key(name):
+                with self.lock:
+                    self.state["ssid"] = st.get("ssid", "")
+                    self.state["adapter"] = st.get("state", "")
+                return True
+            self.stop_evt.wait(1.5)
+        return False
+
     def _step_wifi(self) -> None:
         st = wu.wlan_state()
         iface = st.get("name") or self.cfg["interface"]
-        self.log.info("尝试重连 WiFi %s（接口 %s，当前 SSID=%s）",
-                      self.cfg["ssid"], iface, st.get("ssid") or "无")
-        rc, out = wu.wlan_connect(self.cfg["ssid"], iface, stop_evt=self.stop_evt)
-        if rc != 0:
-            self.log.warning("netsh wlan connect 返回 %s：%s", rc, out.splitlines()[0] if out else "")
-        self.stop_evt.wait(6.0)
+        cands = self._wifi_candidates()
+        if not cands:
+            self.log.warning("守护清单为空，没有可重连的 WiFi，跳过 WiFi 重连")
+            return
+        self.log.info("准备重连 WiFi：%s（接口 %s，当前 SSID=%s）",
+                      "、".join(cands), iface, st.get("ssid") or "无")
+        for idx, name in enumerate(cands, 1):
+            if self.stop_evt.is_set():
+                return
+            self.log.info("尝试重连 WiFi %s（%d/%d）", name, idx, len(cands))
+            rc, out = wu.wlan_connect(name, iface, stop_evt=self.stop_evt)
+            if rc != 0:
+                self.log.warning("netsh wlan connect(name=%s) 返回 %s：%s",
+                                 name, rc, out.splitlines()[0] if out else "")
+                continue
+            if self._wait_wifi(name):
+                self.log.info("已连接 WiFi %s", name)
+                if self.cfg.get("last_ssid") != name:
+                    self.cfg["last_ssid"] = name
+                    self.save_config()
+                break
+            self.log.warning("WiFi %s 在 10 秒内没有连上，接着试下一个", name)
+        self.stop_evt.wait(2.0)
         self._srun_step("（WiFi 重连之后）")
 
     def _step_restart(self) -> None:
@@ -418,12 +496,14 @@ class Monitor:
             with self.lock:
                 self.state["ssid"] = st.get("ssid", "")
                 self.state["adapter"] = st.get("state", "")
-            if (self.cfg["only_on_campus"] and self.cfg["ssid"] and self.cfg["portal_host"]
+            targets = self.cfg.get("ssid_list") or []
+            if (self.cfg["only_on_campus"] and targets and self.cfg["portal_host"]
                     and st.get("connected") and st.get("ssid")
-                    and st["ssid"].strip().lower() != self.cfg["ssid"].strip().lower()
+                    and not ssid_matches(st["ssid"], targets)
                     and not self._portal_reachable()):
-                self._status("other", "当前在 %s，不是校园网，未自动重连" % st["ssid"])
-                self.log.info("当前 SSID=%s 且认证服务器不可达，跳过自动重连", st["ssid"])
+                self._status("other", "当前在 %s，不在守护清单内，未自动重连" % st["ssid"])
+                self.log.info("当前 SSID=%s 不在守护清单(%s)内且认证服务器不可达，跳过自动重连",
+                              st["ssid"], "、".join(targets))
                 return False
             self._status("recovering", "正在尝试恢复…")
             steps = [("SRun 重新认证", self._srun_step)]
@@ -469,9 +549,10 @@ class Monitor:
 
     def reschedule(self) -> None:
         try:
-            self._next_periodic = time.monotonic() + float(self.cfg.get("periodic_seconds") or 300)
-        except Exception:
-            pass
+            secs = float(self.cfg.get("periodic_seconds") or 300)
+        except (TypeError, ValueError, OverflowError):
+            secs = 300.0
+        self._next_periodic = time.monotonic() + max(float(MIN_PERIODIC), min(float(MAX_PERIODIC), secs))
 
     def force_check(self) -> None:
         threading.Thread(target=self.check_once, args=("手动",), daemon=True).start()
@@ -493,7 +574,8 @@ class Monitor:
             st = dict(self.state)
         cd = st.get("cooldown_until") or 0
         st["cooldown_left"] = int(cd - time.time()) if cd and time.time() < cd else 0
-        st["cfg"] = {k: v for k, v in self.cfg.items() if k != "password"}
+        with self.lock:
+            st["cfg"] = {k: v for k, v in self.cfg.items() if k != "password"}
         st["cfg"]["has_password"] = bool(self.password)
         st["cfg"]["periodic_min"] = MIN_PERIODIC
         st["cfg"]["periodic_max"] = MAX_PERIODIC

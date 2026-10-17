@@ -184,6 +184,23 @@ def wlan_state(interface: str = "") -> dict:
     connected = bool(ssid) and ("connected" in state.lower() or "已连接" in state)
     return {"connected": connected or bool(ssid), "ssid": ssid, "state": state, "name": name}
 
+def wlan_profiles(timeout: float = 15) -> list:
+    rc, out = run(["netsh", "wlan", "show", "profiles"], timeout=timeout)
+    if rc != 0:
+        return []
+    names = []
+    for line in out.splitlines():
+        key, sep, val = line.partition(":")
+        if not sep:
+            continue
+        low = key.strip().lower()
+        if "profile" not in low and "配置文件" not in key:
+            continue
+        name = val.strip()
+        if name and name not in names:
+            names.append(name)
+    return names
+
 def wlan_connect(profile: str, interface: str = "", timeout: float = 25,
                 stop_evt=None) -> tuple[int, str]:
     args = ["netsh", "wlan", "connect", "name=%s" % profile]

@@ -3,6 +3,8 @@
   "portal_host": "",
   "ac_id": "1",
   "ssid": "",
+  "ssid_list": [],
+  "last_ssid": "",
   "interface": "WLAN",
   "only_on_campus": true,
   "periodic_seconds": 300,
